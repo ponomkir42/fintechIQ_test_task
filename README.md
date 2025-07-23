@@ -1,0 +1,1 @@
+# fintechIQ_test_task
