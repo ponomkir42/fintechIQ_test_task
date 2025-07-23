@@ -10,5 +10,8 @@
 4. Запустить контейнеры: `docker compose up -d --build`
 5. Логи: `docker compose logs -f`
 
+OpenAPI документация:
+`http://localhost:8045/docs`
+
 Запуск тестов (контейнеры должны быть запущены):
 `docker compose exec -it api uv run pytest src`
