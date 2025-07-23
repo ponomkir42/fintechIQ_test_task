@@ -1,0 +1,77 @@
+services:
+  api:
+    container_name: blacklist_service_api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./runtime:/runtime
+      - .:/app
+    ports:
+      - "8045:8000"
+    restart: unless-stopped
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      - postgres
+      - rabbit
+    command: >
+      sh -c "
+        uv run alembic upgrade head &&
+        uv run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+  consumer:
+    container_name: blacklist_service_consumer
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - rabbit
+    command: ["uv", "run", "src/consumers/blacklist_consumer.py"]
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - .blacklist_postgres/runtime/:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d '${POSTGRES_DB}' -U '${POSTGRES_USER}'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  rabbit:
+    image: rabbitmq:4-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBIT_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBIT_PASSWORD}"
+    volumes:
+      - .rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  postgres:
+  rabbit:
